@@ -2,38 +2,560 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>AI Scene Studio</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Scene Studio</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0c;--surf:#111116;--card:#16161d;
+  --b:#ffffff0f;--bh:#ffffff1e;
+  --gold:#c9a84c;--goldd:#c9a84c44;--goldbg:#c9a84c0e;
+  --text:#e8e4d8;--mut:#55524c;
+  --red:#c95454;--green:#5db87a;
+  --r:8px;--mono:'JetBrains Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 
-:root {
-  --bg:        #0a0a0c;
-  --surface:   #111116;
-  --card:      #16161d;
-  --border:    #ffffff0f;
-  --border-hi: #ffffff22;
-  --gold:      #c9a84c;
-  --gold-dim:  #c9a84c55;
-  --gold-glow: #c9a84c18;
-  --text:      #e8e4d8;
-  --muted:     #666;
-  --red:       #d45454;
-  --r:         6px;
-  --font:      'JetBrains Mono', 'Fira Mono', monospace;
+/* ── HEADER ── */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surf);border-bottom:1px solid var(--b);position:sticky;top:0;z-index:200}
+.logo{font-size:14px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:300}
+.status{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--mut)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--mut);flex-shrink:0;transition:background .4s}
+.dot.ok{background:var(--green);box-shadow:0 0 6px #5db87a88}
+.dot.err{background:var(--red)}
+
+/* ── TABS ── */
+.tabs{display:flex;background:var(--surf);border-bottom:1px solid var(--b);position:sticky;top:53px;z-index:190}
+.tab{flex:1;padding:12px 0;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
+.tab.on{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* ── PANELS ── */
+.panel{display:none}
+.panel.on{display:block}
+
+/* ── LAYER CARDS ── */
+.layers-stack{display:flex;flex-direction:column;gap:0;padding:0}
+.lcard{border-bottom:1px solid var(--b)}
+.lcard-head{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+.lcard-ico{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+.lcard-info{flex:1;min-width:0}
+.lcard-name{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+.lcard-desc{font-size:10px;color:var(--mut);margin-top:1px}
+.lcard-badge{width:28px;height:20px;border-radius:4px;object-fit:cover;border:1px solid var(--bh);flex-shrink:0;display:none}
+.lcard-badge.show{display:block}
+.lcard-arrow{font-size:11px;color:var(--mut);transition:transform .2s;flex-shrink:0}
+.lcard.open .lcard-arrow{transform:rotate(180deg)}
+
+.lcard-body{display:none;padding:0 16px 16px;flex-direction:column;gap:10px}
+.lcard.open .lcard-body{display:flex}
+
+/* Preview thumbnail inside card */
+.lcard-preview{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:6px;overflow:hidden;border:1px solid var(--b)}
+.lcard-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.lcard-preview.empty{display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.preview-overlay{position:absolute;inset:0;background:linear-gradient(transparent 50%,rgba(0,0,0,.7));display:flex;align-items:flex-end;padding:8px;opacity:0;transition:opacity .2s}
+.lcard-preview:hover .preview-overlay{opacity:1}
+
+/* Textarea */
+.ta-wrap{position:relative}
+textarea{width:100%;background:var(--card);border:1px solid var(--b);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:12px;line-height:1.7;padding:11px 12px;resize:none;outline:none;min-height:72px;transition:border-color .2s;-webkit-appearance:none}
+textarea:focus{border-color:var(--goldd)}
+textarea::placeholder{color:var(--mut)}
+.char{font-size:10px;color:#333;text-align:right;margin-top:4px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:6px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border:none;transition:all .18s;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.btn:active:not(:disabled){transform:scale(.96)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-ghost{background:none;border:1px solid var(--b);color:var(--mut)}
+.btn-gold{background:var(--goldbg);border:1px solid var(--goldd);color:var(--gold)}
+.btn-solid{background:var(--gold);color:#0a0a0c;font-weight:600}
+.btn-full{width:100%;padding:13px}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{flex:1}
+
+/* Status badge on layer */
+.layer-status{display:flex;align-items:center;gap:6px;font-size:10px;padding:6px 10px;border-radius:6px;letter-spacing:.06em}
+.layer-status.loading{background:var(--goldbg);color:var(--gold)}
+.layer-status.done{background:#5db87a10;color:var(--green)}
+.layer-status.err{background:#c9545410;color:var(--red)}
+
+/* Spinner */
+.spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:rot .6s linear infinite;opacity:.7}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* ── CANVAS PANEL ── */
+.cv-wrap{padding:14px;display:flex;flex-direction:column;gap:12px}
+.cv-frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;border:1px solid var(--bh);border-radius:var(--r);overflow:hidden}
+.cv-frame canvas{width:100%;height:100%;display:block}
+.cv-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;color:var(--mut);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.cv-empty-ico{font-size:30px;opacity:.2}
+.cv-grid{position:absolute;inset:0;background-image:linear-gradient(var(--b) 1px,transparent 1px),linear-gradient(90deg,var(--b) 1px,transparent 1px);background-size:32px 32px;pointer-events:none}
+.cv-actions{display:flex;gap:8px}
+.cv-actions .btn{flex:1}
+
+/* Layer strip on canvas panel */
+.cv-layers{display:flex;flex-direction:column;gap:6px}
+.cv-layer-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--card);border:1px solid var(--b);border-radius:6px}
+.cv-thumb{width:44px;height:30px;border-radius:4px;object-fit:cover;border:1px solid var(--b);flex-shrink:0;background:var(--surf)}
+.cv-linfo{flex:1;min-width:0}
+.cv-lname{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.cv-lprompt{font-size:11px;color:var(--mut);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.vis-btn{background:none;border:none;color:var(--mut);font-size:15px;cursor:pointer;padding:2px 4px;-webkit-tap-highlight-color:transparent;transition:color .18s}
+.vis-btn.hidden{opacity:.3}
+.del-btn{background:none;border:none;color:#c9545466;font-size:18px;cursor:pointer;padding:2px 4px;-webkit-tap-highlight-color:transparent;line-height:1}
+.del-btn:active{color:var(--red)}
+
+.sec-t{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);padding:14px 16px 10px;border-bottom:1px solid var(--b)}
+
+/* Toast */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--card);border:1px solid var(--bh);border-radius:6px;padding:10px 18px;font-size:12px;opacity:0;pointer-events:none;transition:all .25s;z-index:9999;white-space:nowrap;letter-spacing:.04em}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.err{color:var(--red);border-color:#c9545444}
+#toast.ok{color:var(--gold)}
+
+/* Desktop */
+@media(min-width:720px){
+  .tabs{display:none}
+  .panel{display:block!important}
+  body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  .app{display:grid;grid-template-columns:360px 1fr;flex:1;overflow:hidden}
+  #panel-layers{overflow-y:auto;border-right:1px solid var(--b)}
+  #panel-canvas{overflow-y:auto;background:var(--bg)}
+  .cv-wrap{padding:24px}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="logo">◈ Scene Studio</div>
+  <div class="status">
+    <span class="dot" id="dot"></span>
+    <span id="st">checking…</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab on" data-t="layers">✦ Layers</button>
+  <button class="tab" data-t="canvas">◈ Canvas</button>
+</div>
+
+<div class="app">
+
+  <!-- ── LAYERS PANEL ── -->
+  <div class="panel on" id="panel-layers">
+
+    <!-- Generate All button -->
+    <div style="padding:14px 16px;border-bottom:1px solid var(--b)">
+      <button class="btn btn-solid btn-full" id="genAllBtn">
+        Generate All Layers
+      </button>
+    </div>
+
+    <div class="layers-stack" id="layersStack">
+      <!-- injected by JS -->
+    </div>
+
+  </div>
+
+  <!-- ── CANVAS PANEL ── -->
+  <div class="panel" id="panel-canvas">
+    <div class="cv-wrap">
+
+      <div class="cv-frame" id="cvFrame">
+        <div class="cv-grid"></div>
+        <canvas id="cvCanvas" width="1280" height="720"></canvas>
+        <div class="cv-empty" id="cvEmpty">
+          <div class="cv-empty-ico">◈</div>
+          <div>No layers generated</div>
+        </div>
+      </div>
+
+      <div class="cv-actions">
+        <button class="btn btn-ghost" id="saveBtn">⬇ Save PNG</button>
+        <button class="btn btn-ghost" id="clearBtn">✕ Clear</button>
+      </div>
+
+      <div class="sec-t">Generated Layers</div>
+      <div class="cv-layers" id="cvLayers">
+        <div style="padding:10px 16px;font-size:11px;color:var(--mut)" id="cvNoLayers">
+          No layers yet.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const LAYERS = [
+  { id:'scene',      ico:'◈', name:'Scene',      desc:'Complete cinematic scene'          },
+  { id:'object',     ico:'◉', name:'Object',     desc:'Main subject, isolated'            },
+  { id:'background', ico:'◻', name:'Background', desc:'Environment, no subjects'          },
+  { id:'light',      ico:'◐', name:'Light',      desc:'Lighting & atmosphere overlay'     },
+  { id:'mood',       ico:'◑', name:'Mood',       desc:'Color grading & emotional tone'    },
+];
+
+// state[layerId] = { prompt, image: HTMLImageElement|null, visible, busy }
+const state = {};
+LAYERS.forEach(l => { state[l.id] = { prompt:'', image:null, visible:true, busy:false }; });
+
+const canvas = document.getElementById('cvCanvas');
+const ctx    = canvas.getContext('2d');
+
+// ── HEALTH ────────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    const dot = document.getElementById('dot');
+    const st  = document.getElementById('st');
+    if (d.ok && d.configured) { dot.className = 'dot ok'; st.textContent = 'ready'; }
+    else { dot.className = 'dot err'; st.textContent = d.has_key ? 'client error' : 'no api key'; }
+  } catch { document.getElementById('dot').className='dot err'; document.getElementById('st').textContent='offline'; }
+})();
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+    btn.classList.add('on');
+    document.getElementById('panel-' + btn.dataset.t).classList.add('on');
+  });
+});
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+let _tt;
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'on ' + type;
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.className = '', 2600);
 }
 
-html, body {
-  height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 13px;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
+// ── RENDER LAYER CARDS ────────────────────────────────────────────────────────
+function renderCards() {
+  const stack = document.getElementById('layersStack');
+  stack.innerHTML = '';
+  LAYERS.forEach(layer => buildCard(layer, stack));
 }
+
+function buildCard(layer, container) {
+  const s = state[layer.id];
+  const card = document.createElement('div');
+  card.className = 'lcard';
+  card.id = 'card-' + layer.id;
+
+  const hasImg = !!s.image;
+
+  card.innerHTML = `
+    <div class="lcard-head">
+      <div class="lcard-ico">${layer.ico}</div>
+      <div class="lcard-info">
+        <div class="lcard-name">${layer.name}</div>
+        <div class="lcard-desc">${layer.desc}</div>
+      </div>
+      ${hasImg ? `<img class="lcard-badge show" id="badge-${layer.id}" src="">` : `<span class="lcard-badge" id="badge-${layer.id}"></span>`}
+      <div class="lcard-arrow">▾</div>
+    </div>
+    <div class="lcard-body">
+      ${hasImg ? `
+        <div class="lcard-preview" id="prev-${layer.id}">
+          <img id="prevImg-${layer.id}" src="" style="width:100%;height:100%;object-fit:cover;display:block">
+          <div class="preview-overlay"></div>
+        </div>` : `
+        <div class="lcard-preview empty" id="prev-${layer.id}">
+          No image yet
+        </div>`}
+      <div class="ta-wrap">
+        <textarea
+          id="ta-${layer.id}"
+          placeholder="Describe the ${layer.name.toLowerCase()}…"
+          rows="3"
+          maxlength="800"
+        >${esc(s.prompt)}</textarea>
+        <div class="char"><span id="cc-${layer.id}">${s.prompt.length}</span>/800</div>
+      </div>
+      <div id="lstatus-${layer.id}"></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="impBtn-${layer.id}" ${s.busy?'disabled':''}>
+          ✦ Improve
+        </button>
+        <button class="btn btn-solid" id="genBtn-${layer.id}" ${s.busy?'disabled':''}>
+          ${hasImg ? '↺ Regen' : 'Generate'}
+        </button>
+      </div>
+    </div>
+  `;
+
+  container.appendChild(card);
+
+  // Restore images
+  if (hasImg) {
+    document.getElementById('prevImg-' + layer.id).src = s.image.src;
+    document.getElementById('badge-' + layer.id).src   = s.image.src;
+  }
+
+  // Toggle open/close
+  card.querySelector('.lcard-head').addEventListener('click', () => {
+    card.classList.toggle('open');
+  });
+
+  // Textarea sync
+  const ta = document.getElementById('ta-' + layer.id);
+  ta.addEventListener('input', () => {
+    s.prompt = ta.value;
+    document.getElementById('cc-' + layer.id).textContent = ta.value.length;
+  });
+
+  // Improve
+  document.getElementById('impBtn-' + layer.id).addEventListener('click', () =>
+    improveLayer(layer.id)
+  );
+
+  // Generate
+  document.getElementById('genBtn-' + layer.id).addEventListener('click', () =>
+    generateLayer(layer.id)
+  );
+}
+
+// ── IMPROVE ───────────────────────────────────────────────────────────────────
+async function improveLayer(id) {
+  const s = state[id];
+  if (s.busy) return;
+  const text = (s.prompt || '').trim();
+  if (!text) { toast('Enter a prompt first', 'err'); return; }
+
+  setBusy(id, true, 'Improving…');
+  try {
+    const r = await post('/api/improve', { layer: id, text });
+    s.prompt = r.text;
+    const ta = document.getElementById('ta-' + id);
+    if (ta) { ta.value = r.text; document.getElementById('cc-' + id).textContent = r.text.length; }
+    toast('Prompt improved ✦');
+  } catch(e) {
+    toast(e.message, 'err');
+  } finally {
+    setBusy(id, false);
+  }
+}
+
+// ── GENERATE ONE LAYER ────────────────────────────────────────────────────────
+async function generateLayer(id) {
+  const s = state[id];
+  if (s.busy) return;
+  const prompt = (s.prompt || '').trim();
+  if (!prompt) { toast('Enter a prompt first', 'err'); return; }
+
+  setBusy(id, true, 'Generating…');
+  try {
+    const d = await post('/api/generate_layer', { layer: id, prompt });
+    await applyImage(id, d.image_base64, d.mime_type);
+    toast(`${id} layer ready ✦`);
+
+    // Switch to canvas on mobile after first generation
+    if (window.innerWidth < 720) switchTab('canvas');
+  } catch(e) {
+    toast(e.message, 'err');
+    setStatus(id, e.message, 'err');
+  } finally {
+    setBusy(id, false);
+  }
+}
+
+// ── GENERATE ALL ──────────────────────────────────────────────────────────────
+document.getElementById('genAllBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('genAllBtn');
+  const toGen = LAYERS.filter(l => (state[l.id].prompt || '').trim());
+  if (!toGen.length) { toast('Enter at least one prompt', 'err'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Generating…';
+
+  // Generate in parallel
+  await Promise.all(toGen.map(l => generateLayer(l.id)));
+
+  btn.disabled = false;
+  btn.innerHTML = 'Generate All Layers';
+
+  if (window.innerWidth < 720) switchTab('canvas');
+});
+
+// ── APPLY IMAGE ───────────────────────────────────────────────────────────────
+async function applyImage(id, b64, mime) {
+  const img = new Image();
+  img.src = `data:${mime};base64,${b64}`;
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+  state[id].image = img;
+
+  // Update card preview & badge
+  const prevEl = document.getElementById('prev-' + id);
+  if (prevEl) {
+    prevEl.className = 'lcard-preview';
+    prevEl.innerHTML = `<img id="prevImg-${id}" src="${img.src}" style="width:100%;height:100%;object-fit:cover;display:block"><div class="preview-overlay"></div>`;
+  }
+  const badge = document.getElementById('badge-' + id);
+  if (badge) { badge.src = img.src; badge.classList.add('show'); }
+
+  // Update gen button label
+  const genBtn = document.getElementById('genBtn-' + id);
+  if (genBtn && !state[id].busy) genBtn.innerHTML = '↺ Regen';
+
+  redrawCanvas();
+  renderCvLayers();
+}
+
+// ── CANVAS ────────────────────────────────────────────────────────────────────
+function redrawCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const hasAny = LAYERS.some(l => state[l.id].image && state[l.id].visible);
+  document.getElementById('cvEmpty').style.display = hasAny ? 'none' : '';
+
+  LAYERS.forEach(l => {
+    const s = state[l.id];
+    if (s.image && s.visible) {
+      ctx.drawImage(s.image, 0, 0, canvas.width, canvas.height);
+    }
+  });
+}
+
+window.addEventListener('resize', redrawCanvas);
+
+// ── CV LAYERS LIST ────────────────────────────────────────────────────────────
+function renderCvLayers() {
+  const el = document.getElementById('cvLayers');
+  const noEl = document.getElementById('cvNoLayers');
+  const active = LAYERS.filter(l => state[l.id].image);
+  noEl.style.display = active.length ? 'none' : '';
+  el.innerHTML = '';
+  if (noEl.style.display !== 'none') { el.appendChild(noEl); return; }
+  el.appendChild(noEl);
+
+  active.forEach(layer => {
+    const s = state[layer.id];
+    const row = document.createElement('div');
+    row.className = 'cv-layer-row';
+
+    const tc = document.createElement('canvas');
+    tc.width = 88; tc.height = 60;
+    tc.getContext('2d').drawImage(s.image, 0, 0, 88, 60);
+
+    row.innerHTML = `
+      <img class="cv-thumb" src="${tc.toDataURL()}" alt="">
+      <div class="cv-linfo">
+        <div class="cv-lname">${layer.name}</div>
+        <div class="cv-lprompt">${esc(s.prompt)}</div>
+      </div>
+      <button class="vis-btn ${s.visible?'':'hidden'}" data-id="${layer.id}" title="Toggle visibility">
+        ${s.visible ? '◉' : '○'}
+      </button>
+      <button class="del-btn" data-id="${layer.id}" title="Remove">×</button>
+    `;
+
+    row.querySelector('.vis-btn').addEventListener('click', () => {
+      s.visible = !s.visible;
+      redrawCanvas();
+      renderCvLayers();
+    });
+    row.querySelector('.del-btn').addEventListener('click', () => {
+      s.image = null;
+      s.visible = true;
+      redrawCanvas();
+      renderCvLayers();
+      // Reset card
+      const prevEl = document.getElementById('prev-' + layer.id);
+      if (prevEl) { prevEl.className='lcard-preview empty'; prevEl.innerHTML='No image yet'; }
+      const badge = document.getElementById('badge-' + layer.id);
+      if (badge) badge.classList.remove('show');
+      const genBtn = document.getElementById('genBtn-' + layer.id);
+      if (genBtn) genBtn.innerHTML = 'Generate';
+    });
+
+    el.appendChild(row);
+  });
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
+document.getElementById('saveBtn').addEventListener('click', () => {
+  if (!LAYERS.some(l => state[l.id].image)) { toast('Nothing to save', 'err'); return; }
+  const a = document.createElement('a');
+  a.download = `scene-${Date.now()}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+  toast('Saved ✦');
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  LAYERS.forEach(l => { state[l.id].image = null; state[l.id].visible = true; });
+  redrawCanvas();
+  renderCvLayers();
+  renderCards(); // refresh all cards
+  toast('Cleared');
+});
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function setBusy(id, busy, msg = '') {
+  state[id].busy = busy;
+  const impBtn = document.getElementById('impBtn-' + id);
+  const genBtn = document.getElementById('genBtn-' + id);
+  if (impBtn) impBtn.disabled = busy;
+  if (genBtn) {
+    genBtn.disabled = busy;
+    if (busy) genBtn.innerHTML = `<span class="spin"></span> ${msg}`;
+    else genBtn.innerHTML = state[id].image ? '↺ Regen' : 'Generate';
+  }
+  if (msg) setStatus(id, msg, 'loading');
+  else clearStatus(id);
+}
+
+function setStatus(id, msg, type) {
+  const el = document.getElementById('lstatus-' + id);
+  if (!el) return;
+  el.innerHTML = `<div class="layer-status ${type}"><span class="${type==='loading'?'spin':''}"></span>${msg}</div>`;
+}
+function clearStatus(id) {
+  const el = document.getElementById('lstatus-' + id);
+  if (el) el.innerHTML = '';
+}
+
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  const btn = document.querySelector(`[data-t="${t}"]`);
+  if (btn) btn.classList.add('on');
+  document.getElementById('panel-' + t).classList.add('on');
+}
+
+async function post(url, body) {
+  const r = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+  return d;
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderCards();
+redrawCanvas();
+renderCvLayers();
+</script>
+</body>
+</html>
 
 /* ── Header ───────────────────────────────────────── */
 .header {
