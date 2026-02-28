@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Scene Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0a0c;
+    --surface:   #111116;
+    --card:      #16161d;
+    --border:    #ffffff0f;
+    --border-hi: #ffffff22;
+    --gold:      #c9a84c;
+    --gold-dim:  #c9a84c55;
+    --gold-glow: #c9a84c22;
+    --text:      #e8e4d8;
+    --text-muted:#7a7770;
+    --red:       #d45454;
+    --radius:    6px;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* ── Grain overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: .4;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky; top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 300;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  .logo span { color: var(--text-muted); font-size: 11px; font-family: 'JetBrains Mono', monospace; margin-left: 12px; letter-spacing: .05em; }
+
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-muted);
+    display: inline-block;
+    margin-right: 8px;
+    transition: background .4s;
+  }
+  .status-dot.ok { background: #5db87a; box-shadow: 0 0 6px #5db87a99; }
+  .status-dot.err { background: var(--red); }
+
+  /* ── Layout ── */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    grid-template-rows: 1fr;
+    height: calc(100vh - 61px);
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+  .section {
+    padding: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  /* Kind tabs */
+  .kind-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .kind-btn {
+    padding: 8px 4px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .05em;
+    cursor: pointer;
+    text-align: center;
+    transition: all .2s;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+  }
+  .kind-btn .icon { font-size: 15px; }
+  .kind-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+  .kind-btn.active {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--gold-glow);
+    box-shadow: inset 0 0 20px var(--gold-glow);
+  }
+
+  /* Textarea */
+  .prompt-wrap { position: relative; }
+
+  textarea {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    padding: 12px;
+    resize: vertical;
+    min-height: 110px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  textarea:focus { border-color: var(--gold-dim); }
+  textarea::placeholder { color: var(--text-muted); }
+
+  /* Buttons */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: none;
+    transition: all .2s;
+    width: 100%;
+  }
+
+  .btn-secondary {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--border-hi); color: var(--text); }
+
+  .btn-primary {
+    background: var(--gold);
+    color: #0a0a0c;
+    font-weight: 400;
+    margin-top: 12px;
+  }
+  .btn-primary:hover:not(:disabled) { background: #d9b85c; box-shadow: 0 0 20px var(--gold-dim); }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-secondary:disabled { opacity: .4; cursor: not-allowed; }
+
+  .btn-row { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+
+  /* Layers list */
+  .layers-list { display: flex; flex-direction: column; gap: 8px; }
+  .layer-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: border-color .2s;
+  }
+  .layer-item:hover { border-color: var(--border-hi); }
+  .layer-item.active { border-color: var(--gold); }
+  .layer-thumb {
+    width: 38px; height: 28px;
+    border-radius: 3px;
+    object-fit: cover;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .layer-info { flex: 1; min-width: 0; }
+  .layer-kind {
+    font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 1px;
+  }
+  .layer-prompt {
+    font-size: 11px; color: var(--text-muted);
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
+  .layer-del {
+    font-size: 14px; color: var(--text-muted); cursor: pointer;
+    padding: 2px 4px; border-radius: 3px;
+    transition: color .2s;
+    background: none; border: none;
+  }
+  .layer-del:hover { color: var(--red); }
+
+  /* ── Canvas area ── */
+  .canvas-area {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .canvas-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .canvas-toolbar .label {
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--text-muted); margin-right: auto;
+  }
+
+  .tool-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    transition: all .2s;
+  }
+  .tool-btn:hover { border-color: var(--border-hi); color: var(--text); }
+
+  .canvas-viewport {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* grid background */
+  .canvas-viewport::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: .5;
+  }
+
+  .canvas-frame {
+    position: relative;
+    width: min(100%, 720px);
+    aspect-ratio: 16/9;
+    background: #000;
+    border: 1px solid var(--border-hi);
+    box-shadow: 0 0 60px #00000088, 0 0 0 1px #ffffff06;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  .canvas-frame canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+  }
+
+  .empty-state {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px;
+    color: var(--text-muted);
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    pointer-events: none;
+  }
+  .empty-state .icon { font-size: 36px; opacity: .3; }
+
+  /* Loading spinner */
+  .spinner {
+    display: none;
+    width: 22px; height: 22px;
+    border: 2px solid var(--border-hi);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  .spinner.show { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--card);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius);
+    padding: 10px 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: all .3s;
+    pointer-events: none;
+    z-index: 9998;
+    white-space: nowrap;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  #toast.err { color: var(--red); border-color: var(--red); }
+
+  /* Animations */
+  @keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn .3s ease forwards; }
+
+  .char-count { font-size: 10px; color: var(--text-muted); text-align: right; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    AI Scene Studio <span>v2</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText" style="font-size:11px;color:var(--text-muted);letter-spacing:.06em;">checking…</span>
+  </div>
+</header>
+
+<main>
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <div class="section">
+      <div class="section-title">Layer Type</div>
+      <div class="kind-grid">
+        <button class="kind-btn active" data-kind="image">
+          <span class="icon">🖼</span>scene
+        </button>
+        <button class="kind-btn" data-kind="object">
+          <span class="icon">📦</span>object
+        </button>
+        <button class="kind-btn" data-kind="background">
+          <span class="icon">🌅</span>bg
+        </button>
+        <button class="kind-btn" data-kind="light">
+          <span class="icon">💡</span>light
+        </button>
+        <button class="kind-btn" data-kind="mood">
+          <span class="icon">🎨</span>mood
+        </button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Prompt</div>
+      <div class="prompt-wrap">
+        <textarea id="promptInput" placeholder="Describe what you want to generate…" rows="5" maxlength="1000"></textarea>
+        <div class="char-count"><span id="charCount">0</span> / 1000</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="improveBtn">
+          ✦ Improve Prompt
+          <div class="spinner" id="improveSpinner"></div>
+        </button>
+        <button class="btn btn-primary" id="generateBtn">
+          Generate Layer
+          <div class="spinner" id="generateSpinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <div class="section" style="flex:1;">
+      <div class="section-title">Layers <span id="layerCount" style="color:var(--gold)"></span></div>
+      <div class="layers-list" id="layersList">
+        <div style="color:var(--text-muted);font-size:11px;padding:8px 0;" id="noLayersHint">
+          No layers yet. Generate something above.
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Canvas ── -->
+  <section class="canvas-area">
+    <div class="canvas-toolbar">
+      <span class="label">Viewport</span>
+      <button class="tool-btn" id="flattenBtn">⬇ Flatten</button>
+      <button class="tool-btn" id="clearBtn">✕ Clear All</button>
+    </div>
+    <div class="canvas-viewport">
+      <div class="canvas-frame" id="canvasFrame">
+        <canvas id="compositeCanvas"></canvas>
+        <div class="empty-state" id="emptyState">
+          <div class="icon">◈</div>
+          <div>Canvas is empty</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+const state = {
+  kind: 'image',
+  layers: [],       // { id, kind, prompt, img: HTMLImageElement, visible: true }
+  generating: false,
+  improving: false,
+};
+
+// ── DOM refs ───────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const kindBtns      = document.querySelectorAll('.kind-btn');
+const promptInput   = $('promptInput');
+const charCount     = $('charCount');
+const improveBtn    = $('improveBtn');
+const generateBtn   = $('generateBtn');
+const improveSpinner  = $('improveSpinner');
+const generateSpinner = $('generateSpinner');
+const layersList    = $('layersList');
+const noLayersHint  = $('noLayersHint');
+const layerCountEl  = $('layerCount');
+const canvasEl      = $('compositeCanvas');
+const emptyState    = $('emptyState');
+const flattenBtn    = $('flattenBtn');
+const clearBtn      = $('clearBtn');
+const statusDot     = $('statusDot');
+const statusText    = $('statusText');
+
+const ctx = canvasEl.getContext('2d');
+
+// ── Health check ──────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    if (d.ok && d.configured) {
+      statusDot.classList.add('ok');
+      statusText.textContent = 'connected';
+    } else {
+      statusDot.classList.add('err');
+      statusText.textContent = d.has_key ? 'client error' : 'no api key';
+    }
+  } catch {
+    statusDot.classList.add('err');
+    statusText.textContent = 'unreachable';
+  }
+}
+checkHealth();
+
+// ── Kind selector ─────────────────────────────────────────
+kindBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    kindBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.kind = btn.dataset.kind;
+  });
+});
+
+// ── Char counter ──────────────────────────────────────────
+promptInput.addEventListener('input', () => {
+  charCount.textContent = promptInput.value.length;
+});
+
+// ── Toast ─────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, isErr = false) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 2800);
+}
+
+// ── API helpers ───────────────────────────────────────────
+async function api(url, body) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Server error');
+  return d;
+}
+
+// ── Improve Prompt ────────────────────────────────────────
+improveBtn.addEventListener('click', async () => {
+  const text = promptInput.value.trim();
+  if (!text) { toast('Enter a prompt first.', true); return; }
+  if (state.improving) return;
+
+  state.improving = true;
+  improveBtn.disabled = true;
+  improveSpinner.classList.add('show');
+
+  try {
+    const d = await api('/api/improve_prompt', { kind: state.kind, text });
+    promptInput.value = d.text;
+    charCount.textContent = d.text.length;
+    toast('Prompt improved ✦');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    state.improving = false;
+    improveBtn.disabled = false;
+    improveSpinner.classList.remove('show');
+  }
+});
+
+// ── Generate Layer ────────────────────────────────────────
+generateBtn.addEventListener('click', async () => {
+  const prompt = promptInput.value.trim();
+  if (!prompt) { toast('Enter a prompt first.', true); return; }
+  if (state.generating) return;
+
+  state.generating = true;
+  generateBtn.disabled = true;
+  generateSpinner.classList.add('show');
+  generateBtn.childNodes[0].textContent = 'Generating… ';
+
+  try {
+    const d = await api('/api/generate_layer', { kind: state.kind, prompt });
+    const img = new Image();
+    img.src = `data:${d.mime_type};base64,${d.image_base64}`;
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+
+    const layer = {
+      id: Date.now(),
+      kind: d.kind,
+      prompt,
+      img,
+      visible: true,
+    };
+    state.layers.push(layer);
+    renderLayersList();
+    compositeAll();
+    toast('Layer added ✦');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    state.generating = false;
+    generateBtn.disabled = false;
+    generateSpinner.classList.remove('show');
+    generateBtn.childNodes[0].textContent = 'Generate Layer ';
+  }
+});
+
+// ── Layers list UI ────────────────────────────────────────
+function renderLayersList() {
+  // Remove existing layer items
+  document.querySelectorAll('.layer-item').forEach(el => el.remove());
+
+  noLayersHint.style.display = state.layers.length ? 'none' : '';
+  layerCountEl.textContent = state.layers.length ? `(${state.layers.length})` : '';
+
+  // Render newest first
+  [...state.layers].reverse().forEach(layer => {
+    const item = document.createElement('div');
+    item.className = 'layer-item fade-in';
+    item.dataset.id = layer.id;
+
+    // Thumb
+    const thumb = document.createElement('img');
+    thumb.className = 'layer-thumb';
+    thumb.src = layer.img.src;
+
+    // Info
+    const info = document.createElement('div');
+    info.className = 'layer-info';
+    info.innerHTML = `<div class="layer-kind">${layer.kind}</div><div class="layer-prompt">${escHtml(layer.prompt)}</div>`;
+
+    // Delete
+    const del = document.createElement('button');
+    del.className = 'layer-del';
+    del.title = 'Remove layer';
+    del.textContent = '×';
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.layers = state.layers.filter(l => l.id !== layer.id);
+      renderLayersList();
+      compositeAll();
+    });
+
+    item.append(thumb, info, del);
+    layersList.insertBefore(item, noLayersHint.nextSibling || null);
+    layersList.append(item);
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Composite Canvas ──────────────────────────────────────
+function compositeAll() {
+  const frame = $('canvasFrame');
+  const W = frame.offsetWidth;
+  const H = frame.offsetHeight;
+  canvasEl.width  = W;
+  canvasEl.height = H;
+  ctx.clearRect(0, 0, W, H);
+
+  emptyState.style.display = state.layers.length ? 'none' : '';
+
+  state.layers.forEach(layer => {
+    if (!layer.visible) return;
+    ctx.drawImage(layer.img, 0, 0, W, H);
+  });
+}
+
+// Redraw on resize
+window.addEventListener('resize', compositeAll);
+
+// ── Flatten / Clear ───────────────────────────────────────
+flattenBtn.addEventListener('click', () => {
+  if (!state.layers.length) { toast('Nothing to flatten.', true); return; }
+  const link = document.createElement('a');
+  link.download = `scene-${Date.now()}.png`;
+  link.href = canvasEl.toDataURL('image/png');
+  link.click();
+  toast('Image downloaded ✦');
+});
+
+clearBtn.addEventListener('click', () => {
+  if (!state.layers.length) return;
+  state.layers = [];
+  renderLayersList();
+  compositeAll();
+  toast('Canvas cleared.');
+});
+</script>
+</body>
+</html>

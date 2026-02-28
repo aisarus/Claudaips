@@ -1,0 +1,148 @@
+import os
+import base64
+from typing import Literal
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+try:
+    from google import genai
+    from google.genai import types as genai_types
+except Exception:
+    genai = None
+    genai_types = None
+
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(APP_DIR, "static")
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+
+TEXT_MODEL = os.getenv("TEXT_MODEL", "gemini-1.5-flash")
+IMAGE_MODEL = os.getenv("IMAGE_MODEL", "gemini-2.0-flash-exp-image-generation")
+
+client = None
+if GEMINI_API_KEY and genai is not None:
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+    except Exception:
+        client = None
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+LayerKind = Literal["image", "object", "background", "light", "mood"]
+
+KIND_HINTS: dict[str, str] = {
+    "image":      "Generate a complete scene image.",
+    "object":     "Generate only the main object on a transparent/white background.",
+    "background": "Generate only the background environment, no foreground subjects.",
+    "light":      "Generate a lighting/atmosphere overlay for a scene.",
+    "mood":       "Generate a color-grading or mood overlay for a scene.",
+}
+
+
+class ImproveRequest(BaseModel):
+    kind: LayerKind
+    text: str
+
+
+class LayerRequest(BaseModel):
+    kind: LayerKind
+    prompt: str
+
+
+@app.get("/api/health")
+async def health():
+    return {
+        "ok": True,
+        "configured": bool(client),
+        "has_key": bool(GEMINI_API_KEY),
+        "text_model": TEXT_MODEL,
+        "image_model": IMAGE_MODEL,
+    }
+
+
+@app.post("/api/improve_prompt")
+async def improve_prompt(req: ImproveRequest):
+    if client is None:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "GEMINI_API_KEY not set or google-genai missing."},
+        )
+
+    text = (req.text or "").strip()
+    if not text:
+        return JSONResponse(status_code=400, content={"error": "Empty text."})
+
+    hint = KIND_HINTS.get(req.kind, "")
+    system = (
+        "You are an expert visual prompt engineer for AI image generation. "
+        "Improve the user's prompt: make it more vivid, specific, and cinematically detailed. "
+        f"Context — layer type: {req.kind}. {hint} "
+        "Return only the improved prompt text, no explanations."
+    )
+
+    try:
+        resp = await client.aio.models.generate_content(
+            model=TEXT_MODEL,
+            contents=[text],
+            config=genai_types.GenerateContentConfig(
+                system_instruction=system,
+            ),
+        )
+        return {"text": resp.text.strip()}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/api/generate_layer")
+async def generate_layer(req: LayerRequest):
+    if client is None:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "GEMINI_API_KEY not set or google-genai missing."},
+        )
+
+    prompt = (req.prompt or "").strip()
+    if not prompt:
+        return JSONResponse(status_code=400, content={"error": "Empty prompt."})
+
+    try:
+        resp = await client.aio.models.generate_content(
+            model=IMAGE_MODEL,
+            contents=[prompt],
+            config=genai_types.GenerateContentConfig(
+                response_modalities=["image", "text"],
+            ),
+        )
+
+        for cand in resp.candidates:
+            for part in cand.content.parts:
+                if hasattr(part, "inline_data") and part.inline_data:
+                    img_bytes = part.inline_data.data
+                    mime = part.inline_data.mime_type or "image/png"
+                    b64 = base64.b64encode(img_bytes).decode("utf-8")
+                    return {"image_base64": b64, "mime_type": mime, "kind": req.kind}
+
+        return JSONResponse(status_code=502, content={"error": "No image returned by model."})
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# Serve static files — index.html on root
+@app.get("/")
+async def root():
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
