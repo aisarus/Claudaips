@@ -2,38 +2,593 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>AI Scene Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --bg:        #0a0a0c;
-    --surface:   #111116;
-    --card:      #16161d;
-    --border:    #ffffff0f;
-    --border-hi: #ffffff22;
-    --gold:      #c9a84c;
-    --gold-dim:  #c9a84c55;
-    --gold-glow: #c9a84c22;
-    --text:      #e8e4d8;
-    --text-muted:#7a7770;
-    --red:       #d45454;
-    --radius:    6px;
+:root {
+  --bg:        #0a0a0c;
+  --surface:   #111116;
+  --card:      #16161d;
+  --border:    #ffffff0f;
+  --border-hi: #ffffff22;
+  --gold:      #c9a84c;
+  --gold-dim:  #c9a84c55;
+  --gold-glow: #c9a84c18;
+  --text:      #e8e4d8;
+  --muted:     #666;
+  --red:       #d45454;
+  --r:         6px;
+  --font:      'JetBrains Mono', 'Fira Mono', monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Header ───────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 200;
+}
+
+.logo {
+  font-size: 15px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.logo-sub { font-size: 10px; color: var(--muted); margin-left: 8px; letter-spacing: .05em; }
+
+.status {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; color: var(--muted);
+}
+.dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted); transition: background .4s;
+}
+.dot.ok  { background: #5db87a; box-shadow: 0 0 6px #5db87a99; }
+.dot.err { background: var(--red); }
+
+/* ── Mobile tabs ──────────────────────────────────── */
+.tabs {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 53px; z-index: 190;
+}
+.tab {
+  flex: 1; padding: 11px 0;
+  font-family: var(--font); font-size: 10px;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); background: none; border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer; transition: all .2s;
+}
+.tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+/* ── Panels ───────────────────────────────────────── */
+.panel { display: none; flex-direction: column; }
+.panel.active { display: flex; }
+
+/* ── Sections ─────────────────────────────────────── */
+.section {
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.s-title {
+  font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 14px;
+}
+
+/* ── Kind grid ────────────────────────────────────── */
+.kind-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+}
+.kind-btn {
+  padding: 10px 4px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+  color: var(--muted); cursor: pointer;
+  font-family: var(--font); font-size: 10px; letter-spacing: .06em;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  transition: all .18s;
+}
+.kind-btn .ico { font-size: 16px; }
+.kind-btn.active {
+  border-color: var(--gold); color: var(--gold);
+  background: var(--gold-glow);
+}
+
+/* ── Textarea ─────────────────────────────────────── */
+textarea {
+  width: 100%;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+  color: var(--text); font-family: var(--font); font-size: 13px;
+  line-height: 1.7; padding: 12px; resize: none; outline: none;
+  min-height: 120px;
+  -webkit-appearance: none;
+}
+textarea:focus { border-color: var(--gold-dim); }
+textarea::placeholder { color: var(--muted); }
+
+.char-count { font-size: 10px; color: #444; text-align: right; margin-top: 5px; }
+
+/* ── Buttons ──────────────────────────────────────── */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 13px;
+  border-radius: var(--r); font-family: var(--font);
+  font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer; border: none; transition: all .18s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn:active:not(:disabled) { transform: scale(.98); }
+
+.btn-sec {
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--muted); margin-top: 12px;
+}
+.btn-pri {
+  background: var(--gold); color: #0a0a0c; font-weight: 600;
+  margin-top: 10px; box-shadow: 0 4px 20px var(--gold-glow);
+}
+
+/* ── Canvas panel ─────────────────────────────────── */
+.canvas-wrap {
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.canvas-frame {
+  position: relative; width: 100%; aspect-ratio: 16/9;
+  background: #000; border: 1px solid var(--border-hi); border-radius: var(--r);
+  overflow: hidden;
+}
+.canvas-frame canvas { width: 100%; height: 100%; display: block; }
+.canvas-empty {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; pointer-events: none;
+  color: var(--muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+}
+.canvas-empty .e-ico { font-size: 32px; opacity: .2; }
+
+/* Canvas grid bg */
+.canvas-frame::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 30px 30px;
+  pointer-events: none; z-index: 0;
+}
+.canvas-frame canvas, .canvas-empty { position: relative; z-index: 1; }
+
+.canvas-actions { display: flex; gap: 8px; }
+.canvas-actions .btn { flex: 1; margin-top: 0; }
+
+/* ── Layers panel ─────────────────────────────────── */
+.layers-panel { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.no-layers { font-size: 11px; color: #444; padding: 8px 0; }
+
+.layer-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 10px 12px; transition: all .18s;
+}
+.layer-item.active { border-color: var(--gold); }
+.layer-thumb {
+  width: 52px; height: 36px; border-radius: 4px;
+  object-fit: cover; border: 1px solid var(--border); flex-shrink: 0;
+  background: var(--surface);
+}
+.layer-meta { flex: 1; min-width: 0; }
+.layer-kind {
+  font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 2px;
+}
+.layer-prompt {
+  font-size: 11px; color: var(--muted);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.layer-actions { display: flex; flex-direction: column; gap: 6px; }
+.icon-btn {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 15px; padding: 2px 4px; font-family: var(--font); line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.icon-btn.del { color: #d4545488; }
+.icon-btn.del:active { color: var(--red); }
+
+/* ── Spinner ──────────────────────────────────────── */
+.spinner {
+  width: 13px; height: 13px;
+  border: 2px solid #ffffff22; border-top-color: currentColor;
+  border-radius: 50%; animation: spin .6s linear infinite;
+  display: inline-block; vertical-align: middle;
+}
+.btn-pri .spinner { border-color: #0a0a0c33; border-top-color: #0a0a0c; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Toast ────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: var(--card); border: 1px solid var(--border-hi);
+  border-radius: var(--r); padding: 10px 20px;
+  font-size: 12px; color: var(--text);
+  opacity: 0; pointer-events: none;
+  transition: all .28s; z-index: 9999;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.err  { color: var(--red); border-color: var(--red); }
+
+/* ── Desktop layout (≥ 720px) ─────────────────────── */
+@media (min-width: 720px) {
+  .tabs { display: none; }
+  .panel { display: flex !important; }
+
+  body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  .app-body {
+    flex: 1; display: grid;
+    grid-template-columns: 320px 1fr 280px;
+    overflow: hidden;
   }
 
-  html, body { height: 100%; }
+  /* On desktop: left = generate panel, center = canvas, right = layers */
+  #panel-generate {
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  #panel-canvas {
+    display: flex !important; flex-direction: column;
+    background: var(--bg); overflow: hidden;
+  }
+  #panel-canvas .canvas-wrap {
+    flex: 1; display: flex; flex-direction: column;
+    justify-content: center; padding: 24px;
+  }
+  #panel-layers {
+    border-left: 1px solid var(--border);
+    overflow-y: auto; background: var(--surface);
+  }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    line-height: 1.6;
-    display: flex;
-    flex-direction: column;
+  /* Big canvas */
+  .canvas-frame { aspect-ratio: 16/9; }
+}
+
+@media (max-width: 719px) {
+  .app-body { display: block; }
+  #panel-canvas .canvas-wrap { padding: 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">◈ Scene Studio <span class="logo-sub">gemini</span></div>
+  <div class="status">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">checking…</span>
+  </div>
+</div>
+
+<!-- Mobile tabs -->
+<div class="tabs">
+  <button class="tab active" data-tab="generate">✦ Generate</button>
+  <button class="tab" data-tab="canvas">◈ Canvas</button>
+  <button class="tab" data-tab="layers">≡ Layers</button>
+</div>
+
+<div class="app-body">
+
+  <!-- ── Generate panel ── -->
+  <div id="panel-generate" class="panel active">
+
+    <div class="section">
+      <div class="s-title">Layer Type</div>
+      <div class="kind-grid">
+        <button class="kind-btn active" data-kind="image">
+          <span class="ico">◈</span>scene
+        </button>
+        <button class="kind-btn" data-kind="object">
+          <span class="ico">◉</span>object
+        </button>
+        <button class="kind-btn" data-kind="background">
+          <span class="ico">◻</span>bg
+        </button>
+        <button class="kind-btn" data-kind="light">
+          <span class="ico">◐</span>light
+        </button>
+        <button class="kind-btn" data-kind="mood">
+          <span class="ico">◑</span>mood
+        </button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="s-title">Prompt</div>
+      <textarea id="promptInput" placeholder="Describe what you want to generate…" maxlength="1000"></textarea>
+      <div class="char-count"><span id="charCount">0</span> / 1000</div>
+
+      <button class="btn btn-sec" id="improveBtn">
+        <span id="improveLabel">✦ Improve Prompt</span>
+      </button>
+      <button class="btn btn-pri" id="generateBtn">
+        <span id="generateLabel">Generate Layer</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ── Canvas panel ── -->
+  <div id="panel-canvas" class="panel">
+    <div class="canvas-wrap">
+      <div class="canvas-frame" id="canvasFrame">
+        <canvas id="mainCanvas" width="1280" height="720"></canvas>
+        <div class="canvas-empty" id="emptyState">
+          <div class="e-ico">◈</div>
+          <div>Canvas is empty</div>
+        </div>
+      </div>
+      <div class="canvas-actions">
+        <button class="btn btn-sec" id="flattenBtn">⬇ Save PNG</button>
+        <button class="btn btn-sec" id="clearBtn">✕ Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Layers panel ── -->
+  <div id="panel-layers" class="panel">
+    <div class="layers-panel">
+      <div class="s-title">Layers <span id="layerCount" style="color:var(--gold)"></span></div>
+      <div id="noLayers" class="no-layers">No layers yet.</div>
+      <div id="layersList"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ───────────────────────────────────────────────────────────────────
+const state = { kind: 'image', layers: [], busy: false };
+
+// ── DOM ─────────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const canvas    = $('mainCanvas');
+const ctx       = canvas.getContext('2d');
+const emptyState = $('emptyState');
+
+// ── Health ──────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    const dot  = $('statusDot');
+    const text = $('statusText');
+    if (d.ok && d.configured) {
+      dot.className = 'dot ok';
+      text.textContent = 'ready';
+    } else {
+      dot.className = 'dot err';
+      text.textContent = d.has_key ? 'client error' : 'no api key';
+    }
+  } catch {
+    $('statusDot').className = 'dot err';
+    $('statusText').textContent = 'offline';
+  }
+})();
+
+// ── Mobile tabs ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Kind ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.kind-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.kind-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.kind = btn.dataset.kind;
+  });
+});
+
+// ── Prompt char count ────────────────────────────────────────────────────────
+$('promptInput').addEventListener('input', () => {
+  $('charCount').textContent = $('promptInput').value.length;
+});
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+let _toastTimer;
+function toast(msg, err = false) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'show' + (err ? ' err' : '');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.className = '', 2800);
+}
+
+// ── Spinner helpers ───────────────────────────────────────────────────────────
+function setLoading(btnId, labelId, loading, defaultText, loadingText) {
+  const btn = $(btnId);
+  const lbl = $(labelId);
+  btn.disabled = loading;
+  lbl.innerHTML = loading
+    ? `<span class="spinner"></span> ${loadingText}`
+    : defaultText;
+}
+
+// ── Improve Prompt ────────────────────────────────────────────────────────────
+$('improveBtn').addEventListener('click', async () => {
+  const text = $('promptInput').value.trim();
+  if (!text) { toast('Enter a prompt first.', true); return; }
+  if (state.busy) return;
+  state.busy = true;
+  setLoading('improveBtn', 'improveLabel', true, '✦ Improve Prompt', 'Improving…');
+  try {
+    const r = await fetch('/api/improve_prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: state.kind, text }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Server error');
+    $('promptInput').value = d.text;
+    $('charCount').textContent = d.text.length;
+    toast('Prompt improved ✦');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    state.busy = false;
+    setLoading('improveBtn', 'improveLabel', false, '✦ Improve Prompt', '');
+  }
+});
+
+// ── Generate Layer ────────────────────────────────────────────────────────────
+$('generateBtn').addEventListener('click', async () => {
+  const prompt = $('promptInput').value.trim();
+  if (!prompt) { toast('Enter a prompt first.', true); return; }
+  if (state.busy) return;
+  state.busy = true;
+  setLoading('generateBtn', 'generateLabel', true, 'Generate Layer', 'Generating…');
+
+  try {
+    const r = await fetch('/api/generate_layer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: state.kind, prompt }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      const msg = d.debug?.length ? `${d.error} — ${d.debug[0]}` : (d.error || 'Error');
+      throw new Error(msg);
+    }
+
+    const img = new Image();
+    img.src = `data:${d.mime_type};base64,${d.image_base64}`;
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+
+    state.layers.push({ id: Date.now(), kind: d.kind, prompt, img });
+    redraw();
+    renderLayers();
+    toast('Layer added ✦');
+
+    // Switch to canvas on mobile
+    if (window.innerWidth < 720) {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelector('[data-tab="canvas"]').classList.add('active');
+      $('panel-canvas').classList.add('active');
+    }
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    state.busy = false;
+    setLoading('generateBtn', 'generateLabel', false, 'Generate Layer', '');
+  }
+});
+
+// ── Canvas composite ──────────────────────────────────────────────────────────
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  emptyState.style.display = state.layers.length ? 'none' : '';
+  state.layers.forEach(l => ctx.drawImage(l.img, 0, 0, canvas.width, canvas.height));
+}
+
+window.addEventListener('resize', redraw);
+
+// ── Layers list ───────────────────────────────────────────────────────────────
+function renderLayers() {
+  const list = $('layersList');
+  list.innerHTML = '';
+  $('noLayers').style.display = state.layers.length ? 'none' : '';
+  $('layerCount').textContent = state.layers.length ? `(${state.layers.length})` : '';
+
+  ;[...state.layers].reverse().forEach(layer => {
+    const item = document.createElement('div');
+    item.className = 'layer-item';
+
+    // Thumb: draw layer to small canvas
+    const tc = document.createElement('canvas');
+    tc.width = 104; tc.height = 72;
+    tc.getContext('2d').drawImage(layer.img, 0, 0, 104, 72);
+    const thumb = document.createElement('img');
+    thumb.className = 'layer-thumb';
+    thumb.src = tc.toDataURL();
+
+    const meta = document.createElement('div');
+    meta.className = 'layer-meta';
+    meta.innerHTML = `<div class="layer-kind">${esc(layer.kind)}</div><div class="layer-prompt">${esc(layer.prompt)}</div>`;
+
+    const actions = document.createElement('div');
+    actions.className = 'layer-actions';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'icon-btn del';
+    delBtn.title = 'Remove';
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', () => {
+      state.layers = state.layers.filter(l => l.id !== layer.id);
+      renderLayers();
+      redraw();
+    });
+
+    actions.append(delBtn);
+    item.append(thumb, meta, actions);
+    list.append(item);
+  });
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Flatten ────────────────────────────────────────────────────────────────────
+$('flattenBtn').addEventListener('click', () => {
+  if (!state.layers.length) { toast('Canvas is empty.', true); return; }
+  const a = document.createElement('a');
+  a.download = `scene-${Date.now()}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+  toast('Saved ✦');
+});
+
+$('clearBtn').addEventListener('click', () => {
+  if (!state.layers.length) return;
+  state.layers = [];
+  renderLayers();
+  redraw();
+  toast('Cleared.');
+});
+</script>
+</body>
+</html>
     min-height: 100vh;
   }
 
